@@ -536,20 +536,13 @@ module ActiveMerchant #:nodoc:
       end
 
       def add_payment_details_items_xml(xml, options, currency_code)
-        non_decimal_discount = discount_code_and_non_decimal_currency?(options[:items][-1], currency_code)
-        item_total = 0 if non_decimal_discount
         options[:items].each do |item|
           xml.tag! 'n2:PaymentDetailsItem' do
             xml.tag! 'n2:Name', item[:name]
             xml.tag! 'n2:Number', item[:number]
             xml.tag! 'n2:Quantity', item[:quantity]
             if item[:amount]
-              item_amount = localized_amount(item[:amount], currency_code)
-              item_total += item_amount.to_i if non_decimal_discount
-              if non_decimal_discount && item[:amount].to_i < 0
-                item_amount = item_amount.to_i + options[:subtotal].to_i - item_total
-              end
-              xml.tag! 'n2:Amount', item_amount, 'currencyID' => currency_code
+              xml.tag! 'n2:Amount', localized_amount(item[:amount], currency_code), 'currencyID' => currency_code
             end
             xml.tag! 'n2:Description', item[:description]
             xml.tag! 'n2:ItemURL', item[:url]
@@ -560,11 +553,11 @@ module ActiveMerchant #:nodoc:
 
       def add_payment_details(xml, money, currency_code, options = {})
         xml.tag! 'n2:PaymentDetails' do
-          xml.tag! 'n2:OrderTotal', localized_amount(money, currency_code), 'currencyID' => currency_code
+          xml.tag! 'n2:OrderTotal', calculate_total(money, options, currency_code), 'currencyID' => currency_code
 
           # All of the values must be included together and add up to the order total
           if [:subtotal, :shipping, :handling, :tax].all?{ |o| options.has_key?(o) }
-            xml.tag! 'n2:ItemTotal', localized_amount(options[:subtotal], currency_code), 'currencyID' => currency_code
+            xml.tag! 'n2:ItemTotal', calculate_total(options[:subtotal], options, currency_code), 'currencyID' => currency_code
             xml.tag! 'n2:ShippingTotal', localized_amount(options[:shipping], currency_code),'currencyID' => currency_code
             xml.tag! 'n2:HandlingTotal', localized_amount(options[:handling], currency_code),'currencyID' => currency_code
             xml.tag! 'n2:TaxTotal', localized_amount(options[:tax], currency_code), 'currencyID' => currency_code
@@ -665,9 +658,17 @@ module ActiveMerchant #:nodoc:
         (date.is_a?(Date) ? date.to_time : date).utc.iso8601
       end
 
-      def discount_code_and_non_decimal_currency?(item, currency_code)
-        non_decimal_currencies = [ 'JPY', 'HUF', 'TWD' ]
-        item[:amount].to_i < 0 && non_decimal_currencies.include?(currency_code.to_s)
+      def fractional_discount_code?(item)
+        item[:amount].to_i < 0 && item[:amount].to_s.split(".").last != "00"
+      end
+
+      def calculate_total(money, options, currency_code)
+        if options[:items].present? && fractional_discount_code?(options[:items][-1]) && non_fractional_currency?(currency_code)
+          money = amount(money) unless money.to_s.include?(".")
+          return money.to_f.ceil
+        else
+          localized_amount(money, currency_code)
+        end
       end
     end
   end

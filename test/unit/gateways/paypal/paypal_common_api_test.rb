@@ -47,7 +47,7 @@ class PaypalCommonApiTest < Test::Unit::TestCase
   end
 
   def test_add_payment_details_adds_items_details
-    options = {:items => [1]}
+    options = {:items => [{:amount => 1}]}
     @gateway.expects(:add_payment_details_items_xml)
     @gateway.send(:add_payment_details, xml_builder, 100, 'USD', options)
   end
