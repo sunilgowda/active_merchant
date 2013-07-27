@@ -659,7 +659,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def fractional_discount_code?(amount)
-        amount.to_i < 0 && amount.to_s.split(".").last != "00"
+        amount < 0 && amount.to_s.split(".").last != "00"
       end
 
       def discount_code_requires_rounding?(amount, currency_code)
@@ -667,7 +667,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def item_amount(amount, currency_code, last_item_amount)
-        return localized_amount(amount, currency_code) unless amount.to_i < 0 && discount_code_requires_rounding?(last_item_amount, currency_code)
+        return localized_amount(amount, currency_code) unless amount < 0 && discount_code_requires_rounding?(last_item_amount, currency_code)
         amount(amount).to_f.floor
       end
     end
